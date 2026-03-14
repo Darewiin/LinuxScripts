@@ -11,7 +11,7 @@
 # you want full port/process info (use sudo for that).
 
 # Example: bash network_dump_darwin.sh
-  sudo bash network_dump_darwin.sh
+# sudo bash network_dump_darwin.sh
 
 # Output: ~/network_reports/network_dump_darwin_YYYY-MM-DD.txt
 
