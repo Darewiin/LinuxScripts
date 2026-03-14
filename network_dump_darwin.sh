@@ -5,10 +5,10 @@
 # March 14, 2026
 
 # This script dumps network information to the terminal and saves it to a file. 
-  The output file is saved to ~/network_reports/ with the date, my name, and purpose in the filename.
+# The output file is saved to ~/network_reports/ with the date, my name, and purpose in the filename.
 
 # Run from any directory. No special permissions needed unless 
-  you want full port/process info (use sudo for that).
+# you want full port/process info (use sudo for that).
 
 # Example: bash network_dump_darwin.sh
   sudo bash network_dump_darwin.sh
