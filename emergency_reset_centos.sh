@@ -25,8 +25,8 @@ sudo sysctl -w net.ipv4.ip_forward=1
 
 # task2_mysql.sh - Open MySQL port for trusted hosts only
 
-TRUSTED_IP="192.168.1.100"
-TRUSTED_IP2="192.168.1.101"
+TRUSTED_IP="10.211.55.2"
+TRUSTED_IP2="10.211.55.7"
 
 sudo iptables -A INPUT -p tcp -s $TRUSTED_IP --dport 3306 \
   -m state --state NEW,ESTABLISHED -j ACCEPT
