@@ -1,3 +1,16 @@
+#!/bin/bash
+
+# emergency_reset.sh - Flush everything and rebuild clean
+
+# Flush ALL existing rules
+sudo iptables -F
+sudo iptables -X
+sudo iptables -t nat -F
+sudo iptables -t nat -X
+sudo iptables -t mangle -F
+sudo iptables -t mangle -X
+
+
 sudo iptables -P INPUT DROP
 sudo iptables -P FORWARD DROP
 sudo iptables -P OUTPUT ACCEPT
