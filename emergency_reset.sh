@@ -1,3 +1,9 @@
+#!/bin/bash
+# task4_block_hosts.sh - Block/allow specific IPs and MACs
+
+
+#use this script to reset the tables in case you need it
+
 sudo iptables -F
 sudo iptables -X
 sudo iptables -t nat -F
