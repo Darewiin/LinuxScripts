@@ -2,8 +2,8 @@
 # task2_mysql.sh - Open MySQL port for trusted hosts only
 
 # ==== CONFIGURE THESE ====
-TRUSTED_IP="192.168.1.100"   # Replace with your trusted host
-TRUSTED_IP2="192.168.1.101"  # Replace with your second server
+TRUSTED_IP="10.211.55.2"   # Replace with your trusted host
+TRUSTED_IP2="10.211.55.6"  # Replace with your second server
 # =========================
 
 # Allow MySQL from trusted host 1
