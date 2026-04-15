@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #############################################
-# ROLLBACK SCRIPT (v2 - Smart Restore)
+# ROLLBACK SCRIPT (FINAL VERSION)
 #############################################
 
 RESTORE=0
@@ -9,6 +9,9 @@ FAIL=0
 SKIP=0
 RESULTS=()
 
+#############################################
+# LOG FUNCTION
+#############################################
 log() {
     echo "[$1] $2"
     RESULTS+=("[$1] $2")
@@ -20,13 +23,13 @@ log() {
     esac
 }
 
-# Root check
+#############################################
+# ROOT CHECK
+#############################################
 if [[ $EUID -ne 0 ]]; then
     echo "Run as root"
     exit 1
 fi
-
-source /etc/os-release
 
 #############################################
 # FIREWALL RESTORE
@@ -45,10 +48,26 @@ if systemctl is-active firewalld >/dev/null 2>&1; then
 elif [[ -f /root/iptables.bak ]]; then
 
     iptables-restore < /root/iptables.bak
-    log RESTORED "iptables restored from backup"
+    # Restores previous iptables rules
+
+    log RESTORED "iptables restored"
 
 else
     log SKIPPED "No firewall backup found"
+fi
+
+#############################################
+# SELINUX CLEANUP
+#############################################
+
+if command -v getenforce >/dev/null 2>&1; then
+    if [[ "$(getenforce)" == "Enforcing" ]]; then
+
+        semanage port -d -t ssh_port_t -p tcp 2222 2>/dev/null
+        # Removes custom SSH port rule
+
+        log RESTORED "Removed SELinux rule"
+    fi
 fi
 
 #############################################
