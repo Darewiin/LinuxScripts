@@ -1,7 +1,10 @@
 #!/bin/bash
 
 #############################################
-# HARDENING SCRIPT (v2 - Smart Firewall Logic)
+# HARDENING SCRIPT (FINAL VERSION)
+# - Ubuntu (ufw)
+# - CentOS (firewalld / iptables)
+# - SELinux-aware
 #############################################
 
 PASS_COUNT=0
@@ -20,14 +23,19 @@ log_result() {
     fi
 }
 
-# Root check
+#############################################
+# ROOT CHECK
+#############################################
 if [[ $EUID -ne 0 ]]; then
    echo "Run as root"
    exit 1
 fi
 
-# Detect OS
+#############################################
+# OS DETECTION
+#############################################
 source /etc/os-release
+
 if [[ "$ID" == "ubuntu" ]]; then
     OS="ubuntu"
 elif [[ "$ID" == "centos" || "$ID_LIKE" == *"rhel"* ]]; then
@@ -40,9 +48,8 @@ fi
 echo "Detected OS: $OS"
 
 #############################################
-# FIREWALL CONFIGURATION
+# FIREWALL CONFIG
 #############################################
-
 echo "Configuring firewall..."
 
 if [[ "$OS" == "ubuntu" ]]; then
@@ -67,7 +74,6 @@ if [[ "$OS" == "ubuntu" ]]; then
 
 elif [[ "$OS" == "centos" ]]; then
 
-    # Detect firewalld
     if systemctl is-active firewalld >/dev/null 2>&1; then
 
         echo "Using firewalld"
@@ -83,21 +89,14 @@ elif [[ "$OS" == "centos" ]]; then
     else
         echo "firewalld not active, using iptables"
 
-        # Save backup of current rules
         iptables-save > /root/iptables.bak
         log_result $? "Backup iptables"
 
-        # Safe baseline rules
         iptables -P INPUT DROP
         iptables -P OUTPUT ACCEPT
 
-        # Allow loopback (critical)
         iptables -A INPUT -i lo -j ACCEPT
-
-        # Allow established connections
         iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-        # Allow SSH
         iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
         log_result $? "Configured iptables rules"
@@ -107,24 +106,36 @@ elif [[ "$OS" == "centos" ]]; then
 fi
 
 #############################################
-# SSH HARDENING
+# SSH HARDENING (SELINUX SAFE)
 #############################################
-
 echo "Hardening SSH..."
 
 SSH_CONFIG="/etc/ssh/sshd_config"
 cp $SSH_CONFIG ${SSH_CONFIG}.bak
 log_result $? "Backup SSH config"
 
+# Enable key auth
+sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' $SSH_CONFIG
+sed -i 's/^PubkeyAuthentication no/PubkeyAuthentication yes/' $SSH_CONFIG
+
+# Disable root login
 sed -i 's/^#PermitRootLogin yes/PermitRootLogin no/' $SSH_CONFIG
 sed -i 's/^PermitRootLogin yes/PermitRootLogin no/' $SSH_CONFIG
 log_result $? "Disable root login"
 
-sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $SSH_CONFIG
-sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' $SSH_CONFIG
-log_result $? "Disable password auth"
+# Disable password auth ONLY if key exists
+if [ -f ~/.ssh/authorized_keys ]; then
+    sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' $SSH_CONFIG
+    sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' $SSH_CONFIG
+    log_result $? "Disable password auth"
+else
+    log_result 1 "Skipped password auth disable (no keys)"
+fi
 
-# Open port BEFORE changing it (important)
+#############################################
+# OPEN NEW SSH PORT IN FIREWALL
+#############################################
+
 if [[ "$FIREWALL_TYPE" == "firewalld" ]]; then
     firewall-cmd --permanent --add-port=2222/tcp
     firewall-cmd --reload
@@ -132,16 +143,50 @@ elif [[ "$FIREWALL_TYPE" == "iptables" ]]; then
     iptables -A INPUT -p tcp --dport 2222 -j ACCEPT
 fi
 
-sed -i 's/^#Port 22/Port 2222/' $SSH_CONFIG
-log_result $? "Change SSH port"
+#############################################
+# SELINUX CONFIG (CRITICAL FIX)
+#############################################
 
-# Restart SSH
-if [[ "$OS" == "ubuntu" ]]; then
-    systemctl restart ssh
-else
-    systemctl restart sshd
+if command -v getenforce >/dev/null 2>&1; then
+    if [[ "$(getenforce)" == "Enforcing" ]]; then
+
+        echo "Configuring SELinux for new SSH port..."
+
+        yum install -y policycoreutils-python-utils >/dev/null 2>&1 || \
+        dnf install -y policycoreutils-python-utils >/dev/null 2>&1
+
+        semanage port -a -t ssh_port_t -p tcp 2222 2>/dev/null || \
+        semanage port -m -t ssh_port_t -p tcp 2222
+
+        log_result $? "Allow SSH port 2222 in SELinux"
+    fi
 fi
-log_result $? "Restart SSH"
+
+#############################################
+# CLEAN SSH PORT CONFIG
+#############################################
+
+sed -i '/^Port /d' $SSH_CONFIG
+echo "Port 2222" >> $SSH_CONFIG
+log_result $? "Set SSH port to 2222"
+
+#############################################
+# VALIDATE + RESTART SSH
+#############################################
+
+if sshd -t 2>/dev/null; then
+    if [[ "$OS" == "ubuntu" ]]; then
+        systemctl restart ssh
+    else
+        systemctl restart sshd
+    fi
+    log_result $? "Restart SSH"
+else
+    echo "SSH config invalid — restoring backup"
+    cp ${SSH_CONFIG}.bak $SSH_CONFIG
+    systemctl restart sshd
+    log_result 1 "SSH failed — rollback applied"
+fi
 
 #############################################
 # FILE PERMISSIONS
