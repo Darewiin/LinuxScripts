@@ -11,9 +11,9 @@
 #
 # Requirements: Must be run as root. No additional packages needed.
 #
-# Author:  [Your Name]
-# Date:    [Date]
-# GitHub:  [Your GitHub Link]
+# Author:  Darwin M.
+# Date:    April 22,2026
+# GitHub:  https://github.com/Darewiin/LinuxScripts
 ###############################################################################
 
 # --- Configuration ---
